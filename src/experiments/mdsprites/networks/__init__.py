@@ -1,0 +1,2 @@
+from .dsprites_image_classifier import DSpritesImageClassifier
+from .mdsprites_conv_image import MdSpritesConvImageEncoder, MdSpritesConvImageDecoder

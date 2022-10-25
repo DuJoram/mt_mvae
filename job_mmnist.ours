@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -eo pipefail
+shopt -s nullglob globstar
+# check if the module command exists (only on the cluster)
+if command -v module &> /dev/null; then
+    echo "Loading Modules..."
+    module load cuda/10.0.130
+    module load cudnn/7.5
+    module load openblas/0.2.19
+fi
+
+# define TMPDIR, if it's empty
+if [[ -z "$TMPDIR" ]]; then
+    TMPDIR="/tmp"
+fi
+echo "TMPDIR: $TMPDIR"
+
+# activate conda env
+eval "$(conda shell.bash hook)"
+conda activate mm_sets
+
+# set constants
+METHOD="mopoe"  # NOTE: choices are 'mopoe', 'poe', 'moe', 'jsd'
+LIKELIHOOD="laplace"
+DIR_BASE="/usr/scratch/projects/multimodality"
+DIR_DATA="$DIR_BASE/data"
+DIR_CLASSIFIER="$DIR_BASE/experiments/trained_classifier/trained_classifiers_polyMNIST"
+DIR_EXPERIMENT="$DIR_BASE/experiments/mopoe/PolyMNIST_vanilla"
+PATH_INC_V3="$DIR_BASE/inception_v3/pt_inception-2015-12-05-6726825d.pth"
+DIR_FID="$TMPDIR/PolyMNIST" 
+# copy data to TMPDIR, if the data does not already lie there
+# if [ ! -d "$TMPDIR/PolyMNIST" ]; then
+#     echo "Copying data to $TMPDIR..." cp -r "${DIR_DATA}/PolyMNIST.zip" "${TMPDIR}/"
+#     cd $TMPDIR
+#     unzip -q PolyMNIST.zip
+#     cd -
+# fi
+# cp -r "${DIR_DATA}/SVHN" "${TMPDIR}/"
+# cp -r "${DIR_DATA}/MNISTSVHN" "${TMPDIR}/"
+
+python main_mmnist_vanilla.py \
+            --unimodal-datapaths-train "$DIR_DATA/PolyMNIST_vanilla/train/m"{0..2} \
+            --unimodal-datapaths-test "$DIR_DATA/PolyMNIST_vanilla/test/m"{0..2} \
+            --pretrained-classifier-paths "$DIR_CLASSIFIER/pretrained_img_to_digit_classifier_m"{0..2} \
+            --dir_experiment="$DIR_EXPERIMENT" \
+            --inception_state_dict="$PATH_INC_V3" \
+            --dir_fid="$DIR_FID" \
+            --method=$METHOD \
+            --style_dim=0 \
+            --class_dim=64 \
+            --beta=0.001 \
+            --likelihood=$LIKELIHOOD \
+            --batch_size=512 \
+            --initial_learning_rate=0.0005 \
+            --eval_freq=100 \
+            --eval_freq_fid=100 \
+            --end_epoch=1000 \
+            --use_classifier \
+            --eval_lr \
+            --calc_prd \
+            --calc_nll \
+            --plotting_freq=10 \
+            # --debug \
+            # --subsample_input_modalities \
+            # --include_prevs_subsets_y \
+            # --calc_prd \
+            # --calc_nll \
+
+# NOTE class_dim should have at least 64 or better 128 dimensions per modality

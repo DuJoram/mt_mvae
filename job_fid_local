@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -eo pipefail
+shopt -s nullglob globstar
+
+# check if the module command exists (only on the cluster)
+if command -v module &> /dev/null; then
+    echo "Loading Modules..."
+    module load cuda/10.0.130
+    module load cudnn/7.5
+    module load openblas/0.2.19
+fi
+
+# define TMPDIR, if it's empty
+if [[ -z "$TMPDIR" ]]; then
+    TMPDIR="/tmp"
+fi
+echo "TMPDIR: $TMPDIR"
+
+# activate conda env
+eval "$(conda shell.bash hook)"
+conda activate joint_elbo
+echo "CONDA_PREFIX: $CONDA_PREFIX"
+
+# set constants
+# DEBUG=false
+# LOGDIR=""
+METHOD="poe"  # NOTE: choices are 'joint_elbo', 'poe', 'moe', 'jsd'
+LIKELIHOOD="laplace"
+DIR_DATA="/usr/scratch/projects/multimodality/data"
+DIR_CLASSIFIER="/usr/scratch/projects/multimodality/experiments/trained_classifier"
+DIR_EXPERIMENT_BASE="/usr/scratch/fusessh/ethsec_experiments/id_gan/runs/tmp"
+PATH_INC_V3="/usr/scratch/projects/multimodality/inception_v3/pt_inception-2015-12-05-6726825d.pth"
+DIR_FID="$TMPDIR/PolyMNIST"
+TAG_RUN="/poe_no_subsampling/MMNIST_2021_05_21_14_21_44_518436"
+DIR_EXPERIMENT="$DIR_EXPERIMENT_BASE/$TAG_RUN"
+
+echo "$(whoami)"
+# copy data to TMPDIR, if the data does not already lie there
+if [ ! -d "$TMPDIR/PolyMNIST" ]; then
+    echo "Copying data to $TMPDIR..."
+    cp -r "${DIR_DATA}/PolyMNIST.zip" "${TMPDIR}/"
+    cd $TMPDIR
+    unzip -q PolyMNIST.zip
+    cd -
+fi
+
+python main_calc_fid_scores.py \
+            --unimodal-datapaths-train "$TMPDIR/PolyMNIST/train/m"{0..4} \
+            --unimodal-datapaths-test "$TMPDIR/PolyMNIST/test/m"{0..4}   \
+            --pretrained-classifier-paths "$DIR_CLASSIFIER/trained_classifiers_polyMNIST/pretrained_img_to_digit_classifier_m"{0..4} \
+	    --dir_exp_run $DIR_EXPERIMENT \
+

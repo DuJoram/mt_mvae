@@ -1,0 +1,13 @@
+torch==1.10.0
+torchvision==0.11.1
+tensorboardX==2.2
+tensorflow
+scikit_learn==1.0.2
+scipy==1.8.0
+matplotlib==3.5.1
+pandas==1.4.1
+imageio==2.19.0
+wandb==0.12.5
+plotly==5.6.0
+tqdm==4.64.0
+
